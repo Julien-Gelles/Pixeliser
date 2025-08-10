@@ -37,6 +37,14 @@ The project provides a simple yet customizable way to transform images with vari
 
 - `-i` or `--initial`: Displays both the initial and pixelized images when the code finishes.
 
+- `-l` or `--legend` _(optional param)_: Displays a legend grid showing the color code of each pixel. Each code is represented by a capital letter and a number.<br>
+
+  - Without parameter: shows a blank white grid with codes only.
+
+  - With a color code: fills all cells with the specified code.
+
+- `s` or `--steps`: Displays each legend image sequentially for every color in the image, to replicate the pixelized result step-by-step.
+
 ### Example Usage
 
 ```bash
@@ -96,6 +104,22 @@ The `--quick` render option in this script facilitates faster processing by empl
 
 <img src="img/quickRender.jpg">
 
+## Legend Mode
+
+The `--legend` mode  creates a reference grid to manually recreate the pixelized image.
+
+- Without parameter: shows a white grid with each pixel’s color code.
+
+- With a code parameter: all grid cells are colored with the given code.
+
+<img src="img/legendExample.png" width="49%'><img src="img/colorLegendExample.png" width="49%'>
+
+## Steps Mode
+
+The `--steps` mode outputs each color layer of the pixelized image as a separate legend grid, in sequence.
+This is useful for **manual pixel art reproduction**.
+
 ## Author
 
 - [Gelles Julien](https://www.github.com/julien-gelles)
+

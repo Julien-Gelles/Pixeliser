@@ -112,7 +112,7 @@ The `--legend` mode  creates a reference grid to manually recreate the pixelized
 
 - With a code parameter: all grid cells are colored with the given code.
 
-<img src="img/legendExample.png" width="49%'><img src="img/colorLegendExample.png" width="49%'>
+<img src="img/legendExample.png"> <img src="img/colorLegendExample.png">
 
 ## Steps Mode
 
@@ -122,4 +122,5 @@ This is useful for **manual pixel art reproduction**.
 ## Author
 
 - [Gelles Julien](https://www.github.com/julien-gelles)
+
 

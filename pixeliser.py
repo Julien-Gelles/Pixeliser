@@ -97,11 +97,11 @@ def recolorImage(image, color_list, version):
 
 def pixeliseImage(pixelDegree, image, color_list, version, quick):
     if quick:
-        small_im = image.resize((int(image.width/pixelDegree),int(image.height/pixelDegree)), resample=Image.Resampling.BILINEAR)
+        small_im = image.resize((int(image.width/pixelDegree),int(image.height/pixelDegree)), resample=Image.Resampling.NEAREST)
         return recolorImage(small_im, color_list, version).resize(image.size, Image.Resampling.NEAREST)
     else:
         recolor_im = recolorImage(image, color_list, version)
-        small_im = recolor_im.resize((int(image.width/pixelDegree),int(image.height/pixelDegree)), resample=Image.Resampling.BILINEAR)
+        small_im = recolor_im.resize((int(image.width/pixelDegree),int(image.height/pixelDegree)), resample=Image.Resampling.NEAREST)
         return small_im.resize(image.size, Image.Resampling.NEAREST)
 
 #------------------------------------------------
@@ -122,8 +122,7 @@ def generate_symbols(color_list):
                 return symbols
         suffix += 1
 
-
-def create_legend_image(pixelized_img, color_list, pixel_size):
+def create_legend_image(pixelized_img, color_list, pixel_size, highlight_symbol=None, info_text=None):
     symbols = generate_symbols(color_list)
     color_to_symbol = {tuple(c): symbols[i] for i, c in enumerate(color_list)}
 
@@ -139,16 +138,38 @@ def create_legend_image(pixelized_img, color_list, pixel_size):
         for x in range(0, pixelized_img.width, pixel_size):
             color = pixelized_img.getpixel((x, y))
             symbol = color_to_symbol.get(tuple(color), "?")
-            w, h = draw.textsize(symbol, font=font)
-            draw.text(
-                (x + (pixel_size - w) / 2, y + (pixel_size - h) / 2),
-                symbol,
-                fill=(0, 0, 0),
-                font=font
-            )
-            draw.rectangle([x, y, x + pixel_size, y + pixel_size], outline=(0, 0, 0), width=1)
+
+            if highlight_symbol is not None and symbol == highlight_symbol:
+                draw.rectangle([x, y, x + pixel_size, y + pixel_size], fill=tuple(color), outline=(0, 0, 0), width=2)
+            else:
+                bbox = draw.textbbox((0, 0), symbol, font=font)
+                w = bbox[2] - bbox[0]
+                h = bbox[3] - bbox[1]
+                draw.text(
+                    (x + (pixel_size - w) / 2, y + (pixel_size - h) / 2),
+                    symbol,
+                    fill=(0, 0, 0),
+                    font=font
+                )
+                draw.rectangle([x, y, x + pixel_size, y + pixel_size], outline=(0, 0, 0), width=1)
+
+    if info_text:
+        info_height = pixel_size
+        rect_y0 = legend_img.height - info_height
+        draw.rectangle([0, rect_y0, legend_img.width, legend_img.height], fill=(255, 255, 255))
+        try:
+            font_info = ImageFont.truetype("arial.ttf", info_height - 4)
+        except:
+            font_info = ImageFont.load_default()
+        bbox = draw.textbbox((0, 0), info_text, font=font_info)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        x_text = (legend_img.width - w) / 2
+        y_text = rect_y0 + (info_height - h) / 2
+        draw.text((x_text, y_text), info_text, fill=(0, 0, 0), font=font_info)
 
     return legend_img
+
 
 #------------------------------------------------
 
@@ -160,7 +181,8 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--version')
     parser.add_argument('-q', '--quick', action='store_true')
     parser.add_argument('-i', '--initial', action='store_true')
-    parser.add_argument('-l', '--legend', action='store_true')
+    parser.add_argument('-s', '--steps', action='store_true')
+    parser.add_argument('-l', '--legend', nargs='?', const=True, default=False)
     args = parser.parse_args()
 
     file_arg = args.file
@@ -170,6 +192,7 @@ if __name__ == '__main__':
     quick_arg = args.quick
     initial_arg = args.initial
     legend_arg = args.legend
+    step_arg = args.steps
 
     if file_arg == None:
         file_types = [("Image files", "*.png"),("Image files", "*.jpg"),("Image files", "*.jpeg"),("Image files", "*.bmp"),("Image files", "*.ppm"),("Image files", "*.pgm")]
@@ -214,17 +237,39 @@ if __name__ == '__main__':
         final_im = pixeliseImage(int(pixels_arg), im, color_list_arg, int(version_arg), quick_arg)
         if initial_arg:
             im.show()
-
+        
         if legend_arg:
             block_size = int(im.width / (im.width // int(pixels_arg)))
-            legend_img = create_legend_image(final_im, color_list_arg, block_size)
+            highlight_symbol = legend_arg if isinstance(legend_arg, str) else None
+            legend_img = create_legend_image(final_im, color_list_arg, block_size, highlight_symbol)
             legend_img.show()
-        else:
-            final_im.show()
+
+        final_im.show()
 
         end_time = time.time()
         duration = round(end_time - start_time,2)
         if duration > 1: print("Done in", round(end_time - start_time,2) , "seconds.")
         else: print("Done in", round(end_time - start_time,2) , "second.")
+
+        if steps_arg := args.steps:
+            block_size = int(im.width / (im.width // int(pixels_arg)))
+            symbols = generate_symbols(color_list_arg)
+            color_to_symbol = {tuple(c): symbols[i] for i, c in enumerate(color_list_arg)}
+
+            pixels_present = set()
+            for x in range(final_im.width):
+                for y in range(final_im.height):
+                    pixels_present.add(final_im.getpixel((x,y)))
+
+            colors_present = [c for c in color_list_arg if c in pixels_present]
+
+            for color in colors_present:
+                symbol = color_to_symbol[tuple(color)]
+                info_text = f"Color RGB: {color} | Symbol: {symbol}"
+                legend_img = create_legend_image(final_im, color_list_arg, block_size, highlight_symbol=symbol, info_text=info_text)
+                legend_img.show()
+                print(f"Displayed color {color} with symbol '{symbol}'. Close image to continue...")
+                input("Press Enter after closing the image...")
+        
     except Exception as e:
         print("Bad Input :c\n",e) 

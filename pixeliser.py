@@ -1,5 +1,5 @@
 import sys, time, argparse, ast
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from tkinter import filedialog
 
 color_dict = {}
@@ -46,6 +46,7 @@ def color_distance(color1, color2):
     distance = (delta_l ** 2 + delta_a ** 2 + delta_b ** 2) ** 0.5
     return distance
 
+#------------------------------------------------
 
 def getCloserColor(target_color, color_list):
     lab_target_color = rgb_to_lab(target_color)
@@ -61,8 +62,6 @@ def getCloserColor(target_color, color_list):
             closest_color_index = i
 
     return color_list[closest_color_index]
-
-#------------------------------------------------
 
 def getCloserColor2(rgb_color, color_list):
     min_distance = float('inf')
@@ -105,13 +104,53 @@ def pixeliseImage(pixelDegree, image, color_list, version, quick):
         small_im = recolor_im.resize((int(image.width/pixelDegree),int(image.height/pixelDegree)), resample=Image.Resampling.BILINEAR)
         return small_im.resize(image.size, Image.Resampling.NEAREST)
 
+#------------------------------------------------
+
+def generate_symbols(color_list):
+    n = len(color_list)
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    symbols = []
+
+    if n <= 26:
+        return list(alphabet[:n])
+
+    suffix = 0
+    while len(symbols) < n:
+        for letter in alphabet:
+            symbols.append(f"{letter}{suffix}")
+            if len(symbols) >= n:
+                return symbols
+        suffix += 1
 
 
+def create_legend_image(pixelized_img, color_list, pixel_size):
+    symbols = generate_symbols(color_list)
+    color_to_symbol = {tuple(c): symbols[i] for i, c in enumerate(color_list)}
 
+    legend_img = Image.new("RGB", pixelized_img.size, (255, 255, 255))
+    draw = ImageDraw.Draw(legend_img)
 
+    try:
+        font = ImageFont.truetype("arial.ttf", pixel_size // 2)
+    except:
+        font = ImageFont.load_default()
 
+    for y in range(0, pixelized_img.height, pixel_size):
+        for x in range(0, pixelized_img.width, pixel_size):
+            color = pixelized_img.getpixel((x, y))
+            symbol = color_to_symbol.get(tuple(color), "?")
+            w, h = draw.textsize(symbol, font=font)
+            draw.text(
+                (x + (pixel_size - w) / 2, y + (pixel_size - h) / 2),
+                symbol,
+                fill=(0, 0, 0),
+                font=font
+            )
+            draw.rectangle([x, y, x + pixel_size, y + pixel_size], outline=(0, 0, 0), width=1)
 
+    return legend_img
 
+#------------------------------------------------
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -121,6 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--version')
     parser.add_argument('-q', '--quick', action='store_true')
     parser.add_argument('-i', '--initial', action='store_true')
+    parser.add_argument('-l', '--legend', action='store_true')
     args = parser.parse_args()
 
     file_arg = args.file
@@ -128,7 +168,8 @@ if __name__ == '__main__':
     color_list_arg = args.color_list
     version_arg = args.version
     quick_arg = args.quick
-    initial_args = args.initial
+    initial_arg = args.initial
+    legend_arg = args.legend
 
     if file_arg == None:
         file_types = [("Image files", "*.png"),("Image files", "*.jpg"),("Image files", "*.jpeg"),("Image files", "*.bmp"),("Image files", "*.ppm"),("Image files", "*.pgm")]
@@ -171,12 +212,19 @@ if __name__ == '__main__':
         start_time = time.time()
         im = Image.open(file_arg)
         final_im = pixeliseImage(int(pixels_arg), im, color_list_arg, int(version_arg), quick_arg)
-        if initial_args:
+        if initial_arg:
             im.show()
-        final_im.show()
+
+        if legend_arg:
+            block_size = int(im.width / (im.width // int(pixels_arg)))
+            legend_img = create_legend_image(final_im, color_list_arg, block_size)
+            legend_img.show()
+        else:
+            final_im.show()
+
         end_time = time.time()
         duration = round(end_time - start_time,2)
         if duration > 1: print("Done in", round(end_time - start_time,2) , "seconds.")
         else: print("Done in", round(end_time - start_time,2) , "second.")
-    except:
-        print("Bad Input :c") 
+    except Exception as e:
+        print("Bad Input :c\n",e) 
